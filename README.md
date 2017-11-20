@@ -8,5 +8,5 @@ Send msg   : username:message
 
 
 NOTE:
-- username needs to be unique otherwise will be written. No checks as of yet.
+- username needs to be unique otherwise will be overwritten. No checks as of yet. Don't know consequences.
 - No listing of available users
