@@ -2,7 +2,7 @@
 
 Run server : python server.py
 
-Run client : python client.py <username>
+Run client : python client.py username
 
 Send msg   : username:message
 
