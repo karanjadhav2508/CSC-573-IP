@@ -11,6 +11,7 @@ RAND_PORT = 0
 
 done = False
 user_id = ""
+password = ""
 
 def start_server(recv_sock):
 	global done
@@ -30,10 +31,10 @@ def setup_server():
 	thread.start_new_thread(start_server,(recv_sock,))
 
 def send_details():
-	global user_id, SELF_PORT
+	global user_id, password, SELF_PORT
 	init_sock = socket.socket(socket.AF_INET,
                      socket.SOCK_DGRAM)
-	init_sock.sendto("0"+":"+user_id+"-"+str(SELF_IP)+","+str(SELF_PORT), (SERV_IP, SERV_PORT))
+	init_sock.sendto("connection_request:"+user_id+":"+password+":"+str(SELF_IP)+":"+str(SELF_PORT), (SERV_IP, SERV_PORT))
 	init_sock.close()
 
 def chat():
@@ -50,7 +51,13 @@ def chat():
 		time.sleep(1)
 
 if __name__=="__main__":
+	if len(sys.argv) != 3:
+		print "Usage: client.py <username> <password>"
+		exit()
+
 	user_id = sys.argv[1]
+	password = sys.argv[2]
+
 	setup_server()
 	send_details()
 	chat()
