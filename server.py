@@ -34,6 +34,28 @@ def setup():
 	sock.bind((UDP_IP, UDP_PORT))
 	print "Server online on UDP port " + str(UDP_PORT)
 
+def deliver_message(sender, receiver, msg):
+	global sock
+	cl_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	cl_sock.settimeout(2)
+
+	for i in range(3):
+		cl_sock.sendto("Message from "+sender+": "+msg, (clients[receiver].ip, int(clients[receiver].port)))
+		try:
+			ack, addr = cl_sock.recvfrom(1024)
+			if ack == "ack:Message Received":
+				sock.sendto("Message Received by Client: ("+receiver+":"+msg+")", (clients[sender].ip, int(clients[sender].port)))
+				clients[receiver].remove_message(sender, msg)
+				break
+		except socket.timeout:
+			continue
+
+	cl_sock.close()
+
+def deliver_pending_messages(receiver):
+	for msg in clients[receiver].message_queue:
+		thread.start_new_thread(deliver_message,(msg[0],receiver,msg[1],))
+
 def add_client(info):
 	username = info[1]
 	password = info[2]
@@ -45,6 +67,8 @@ def add_client(info):
 			clients[username].ip = ip
 			clients[username].port = port
 			print username + " ip, port updated and connected"
+			print "Sending any pending messages"
+			deliver_pending_messages(username)
 		else:
 			print "User exists, wrong password used"
 			return False
@@ -70,17 +94,6 @@ def send_list(info, addr):
 			client_list.append(receiver)
 	sock.sendto(str(client_list), addr)
 
-def deliver_message(sender, receiver, msg):
-	global sock
-	cl_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	cl_sock.settimeout(2)
-
-	cl_sock.sendto("Message from "+sender+": "+msg, (clients[receiver].ip, int(clients[receiver].port)))
-	# wait for ack from receiver. Send thrice till timeout or ack (NEED TO IMPLEMENT)
-	sock.sendto("Message Received by Client: ("+receiver+":"+msg+")", (clients[sender].ip, int(clients[sender].port)))
-	clients[receiver].remove_message(sender, msg)
-	cl_sock.close()
-
 def send(info, addr):
 	global sock
 	sender = info[0]
@@ -91,7 +104,7 @@ def send(info, addr):
 		port = clients[receiver].port
 		clients[receiver].add_message(sender, msg)
 		sock.sendto("Message Received by Server: ("+receiver+":"+msg+")", addr)
-		deliver_message(sender, receiver, msg)
+		thread.start_new_thread(deliver_message,(sender, receiver, msg,))
 	else:
 		sock.sendto("User "+receiver+" not present", addr)
 

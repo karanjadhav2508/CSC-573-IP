@@ -20,6 +20,9 @@ def start_server(recv_sock):
 	while True:
 		msg, addr = recv_sock.recvfrom(1024)
 		print msg
+
+		if msg.startswith("Message from "):
+			recv_sock.sendto("ack:Message Received", addr)
 	recv_sock.close()
 	done = True
 
