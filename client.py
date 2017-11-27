@@ -13,6 +13,8 @@ done = False
 user_id = ""
 password = ""
 
+message_queue = []
+
 def start_server(recv_sock):
 	global done
 	while True:
@@ -37,16 +39,50 @@ def send_details():
 	init_sock.sendto("connection_request:"+user_id+":"+password+":"+str(SELF_IP)+":"+str(SELF_PORT), (SERV_IP, SERV_PORT))
 	init_sock.close()
 
+def deliver_msg(msg):
+	sock = socket.socket(socket.AF_INET,
+                     socket.SOCK_DGRAM)
+	sock.settimeout(2)
+
+	resp = ""
+	for i in range(3):
+		sock.sendto(user_id+":"+msg, (SERV_IP, SERV_PORT))
+		try:
+			resp, addr = sock.recvfrom(1024)
+			if resp == "Message Received by Server: ("+msg+")":
+				print resp
+				break
+		except socket.timeout:
+			continue
+
+	if resp == "":
+		print "Message Not Sent: ("+msg+"): Server or Network is down"
+
+	message_queue.remove(msg)
+	sock.close()
+
 def chat():
 	global done, user_id
 	while True:
 		msg = raw_input()
-		sock = socket.socket(socket.AF_INET,
-                     socket.SOCK_DGRAM)
-		sock.sendto(user_id+":"+msg, (SERV_IP, SERV_PORT))
-		resp, addr = sock.recvfrom(1024)
-		print resp
-		sock.close()
+		if msg == "list":
+			sock = socket.socket(socket.AF_INET,
+                                     socket.SOCK_DGRAM)
+			sock.sendto(user_id+":"+msg, (SERV_IP, SERV_PORT))
+			resp, addr = sock.recvfrom(1024)
+			print resp
+			sock.close()
+			continue
+
+		if len(msg.split(":")) == 1:
+			print "Invalid input. Available commands:"
+			print "- list"
+			print "- username: message"
+			continue
+
+		message_queue.append(msg)
+		thread.start_new_thread(deliver_msg,(msg,))
+
 	while not done:
 		time.sleep(1)
 

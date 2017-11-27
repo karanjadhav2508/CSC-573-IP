@@ -9,17 +9,24 @@ clients = {}
 
 sock = 0
 
-class UserDetails:
+class UserStore:
 	username = ""
 	password = ""
 	ip = ""
 	port = ""
+	message_queue = []
 
 	def __init__(self, username, password, ip, port):
 		self.username = username
 		self.password = password
 		self.ip = ip
 		self.port = port
+
+	def add_message(self, sender, msg):
+		self.message_queue.append([sender, msg])
+
+	def remove_message(self, sender, msg):
+		self.message_queue.remove([sender, msg])
 
 def setup():
 	global sock
@@ -42,7 +49,7 @@ def add_client(info):
 			print "User exists, wrong password used"
 			return False
 	else:
-		clients[username] = UserDetails(username, password, ip, port)
+		clients[username] = UserStore(username, password, ip, port)
 		print username + " added and connected"
 
 	return True
@@ -63,6 +70,17 @@ def send_list(info, addr):
 			client_list.append(receiver)
 	sock.sendto(str(client_list), addr)
 
+def deliver_message(sender, receiver, msg):
+	global sock
+	cl_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	cl_sock.settimeout(2)
+
+	cl_sock.sendto("Message from "+sender+": "+msg, (clients[receiver].ip, int(clients[receiver].port)))
+	# wait for ack from receiver. Send thrice till timeout or ack (NEED TO IMPLEMENT)
+	sock.sendto("Message Received by Client: ("+receiver+":"+msg+")", (clients[sender].ip, int(clients[sender].port)))
+	clients[receiver].remove_message(sender, msg)
+	cl_sock.close()
+
 def send(info, addr):
 	global sock
 	sender = info[0]
@@ -71,10 +89,9 @@ def send(info, addr):
 	if receiver in clients:
 		ip = clients[receiver].ip
 		port = clients[receiver].port
-		cl_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		cl_sock.sendto(sender+":"+msg, (ip, int(port)))
-		sock.sendto(receiver+":"+msg+":ACK", addr)
-		cl_sock.close()
+		clients[receiver].add_message(sender, msg)
+		sock.sendto("Message Received by Server: ("+receiver+":"+msg+")", addr)
+		deliver_message(sender, receiver, msg)
 	else:
 		sock.sendto("User "+receiver+" not present", addr)
 
