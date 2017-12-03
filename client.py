@@ -18,12 +18,14 @@ next_seq = 0
 expected_ack_seq = 0
 
 messages = []
+
+# gbn queue: each element tuple contianing gbn sequence number, message and retry attempts count
 gbn_queue = []
 
 def start_server(recv_sock):
 	global done, expected_ack_seq
 	while True:
-		msg, addr = recv_sock.recvfrom(1024)
+		msg, addr = recv_sock.recvfrom(4096)
 
 		if msg.startswith("gbn"):
 			ack = msg.split(":")
@@ -34,14 +36,23 @@ def start_server(recv_sock):
 				print ack_msg
 				del gbn_queue[0]
 			else:
-				print "Expected message ack not received. Resending all messages in gbn_queue"
-				deliver_msgs_in_queue()
+				if gbn_queue[0][2] >= 3:
+					print "Max Retries completed. Unable to send messages. Server could be down"
+				else:
+					print "Expected message ack not received. Resending all messages in gbn_queue (retry number " + str(gbn_queue[0][2])  + ")"
+					gbn_queue[0][2] = gbn_queue[0][2] + 1
+					deliver_msgs_in_queue()
+			continue
+
+		if msg.startswith("Message from "):
+			info = msg.split(":gbn:")
+			print info[0]
+			sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			sock.sendto("ack:Message Received:gbn:"+info[1], (SERV_IP, SERV_PORT))
+			sock.close()
 			continue
 
 		print msg
-
-		if msg.startswith("Message from "):
-			recv_sock.sendto("ack:Message Received", addr)
 
 	recv_sock.close()
 	done = True
@@ -66,7 +77,6 @@ def deliver_msgs_in_queue():
 	global messages, gbn_queue
 	sock = socket.socket(socket.AF_INET,
                      socket.SOCK_DGRAM)
-	sock.settimeout(2)
 
 	for i in range(len(gbn_queue)):
 		msg = gbn_queue[i][1]
@@ -75,26 +85,12 @@ def deliver_msgs_in_queue():
 
 		sock.sendto(gbn_seq+":"+user_id+":"+msg, (SERV_IP, SERV_PORT))
 
-	#resp, addr = sock.recvfrom(1024)
-	#if resp == "Message Received by Server: ("+msg+")":
-	#	print resp
-
-	#if resp == "":
-	#	print "Message Not Sent: ("+msg+"): Server or Network is down"
-
-	#del gbn_queue[0]
-	#if len(messages) > 0:
-	#	msg = messages[0]
-	#	del messages[0]
-	#	gbn_queue.append([next_seq, msg])
-	#	next_seq = (next_seq + 1) % gbn_window
-
 	sock.close()
 
 def store_message(msg):
 	global messages, gbn_queue, gbn_window, next_seq
 	if len(gbn_queue) < gbn_window:
-		gbn_queue.append([next_seq, msg])
+		gbn_queue.append([next_seq, msg, 0])
 		next_seq = (next_seq + 1) % gbn_window
 	else:
 		messages.append(msg)	
@@ -107,7 +103,7 @@ def chat():
 			sock = socket.socket(socket.AF_INET,
                                      socket.SOCK_DGRAM)
 			sock.sendto(user_id+":"+msg, (SERV_IP, SERV_PORT))
-			resp, addr = sock.recvfrom(1024)
+			resp, addr = sock.recvfrom(4096)
 			print resp
 			sock.close()
 			continue
