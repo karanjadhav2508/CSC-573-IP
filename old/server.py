@@ -52,18 +52,6 @@ def deliver_message(sender, receiver, msg):
 
 	cl_sock.close()
 
-def deliver_ack(gbn_seq, sender, receiver, msg):
-	global sock
-	cl_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-	print "RECEIVED FROM " + sender + " (gbn:"+gbn_seq+":"+receiver+":"+msg+")"
-	print "Sending ack"
-
-	cl_sock.sendto("gbn:"+gbn_seq+":Message Received by Server: ("+receiver+":"+msg+")", (clients[sender].ip, int(clients[sender].port)))
-
-	cl_sock.close()
-
-
 def deliver_pending_messages(receiver):
 	for msg in clients[receiver].message_queue:
 		thread.start_new_thread(deliver_message,(msg[0],receiver,msg[1],))
@@ -108,21 +96,21 @@ def send_list(info, addr):
 
 def send(info, addr):
 	global sock
-	gbn_seq = info[1]
-	sender = info[2]
-	receiver = info[3]
-	msg = info[4]
+	sender = info[0]
+	receiver = info[1]
+	msg = info[2]
 	if receiver in clients:
 		ip = clients[receiver].ip
 		port = clients[receiver].port
 		clients[receiver].add_message(sender, msg)
-		deliver_ack(gbn_seq, sender, receiver, msg)
+		sock.sendto("Message Received by Server: ("+receiver+":"+msg+")", addr)
 		thread.start_new_thread(deliver_message,(sender, receiver, msg,))
 	else:
 		sock.sendto("User "+receiver+" not present", addr)
 
 def start():
 	global sock
+	#for x in xrange(6):
 	while True:
 		data, addr = sock.recvfrom(1024)
 		info = data.split(":")
