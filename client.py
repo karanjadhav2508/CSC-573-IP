@@ -36,12 +36,8 @@ def start_server(recv_sock):
 				print ack_msg
 				del gbn_queue[0]
 			else:
-				if gbn_queue[0][2] >= 3:
-					print "Max Retries completed. Unable to send messages. Server could be down"
-				else:
-					print "Expected message ack not received. Resending all messages in gbn_queue (retry number " + str(gbn_queue[0][2])  + ")"
-					gbn_queue[0][2] = gbn_queue[0][2] + 1
-					deliver_msgs_in_queue()
+				#ignore dup/unexpected ack
+				continue
 			continue
 
 		if msg.startswith("Message from "):
@@ -73,6 +69,21 @@ def send_details():
 	init_sock.sendto("connection_request:"+user_id+":"+password+":"+str(SELF_IP)+":"+str(SELF_PORT), (SERV_IP, SERV_PORT))
 	init_sock.close()
 
+def timeout_check(gbn_seq):
+	global next_seq, expected_ack_seq, all_messages
+	time.sleep(2)
+	if expected_ack_seq == gbn_seq:
+		if len(gbn_queue) > 0:
+			if gbn_queue[0][2] >= 3:
+				print "Unable to send messages. Server or network could be down"
+				del gbn_queue[:]
+				next_seq = 0
+				expected_ack_seq = 0
+			else:
+				gbn_queue[0][2] = gbn_queue[0][2] + 1
+				deliver_msgs_in_queue()
+
+
 def deliver_msgs_in_queue():
 	global messages, gbn_queue, SERV_IP
 	sock = socket.socket(socket.AF_INET,
@@ -84,6 +95,7 @@ def deliver_msgs_in_queue():
 		resp = ""
 
 		sock.sendto(gbn_seq+":"+user_id+":"+msg, (SERV_IP, SERV_PORT))
+		thread.start_new_thread(timeout_check,(gbn_queue[i][0],))
 
 	sock.close()
 

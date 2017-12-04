@@ -43,15 +43,22 @@
 	\end{titlepage}
 	
 	\section*{INTRODUCTION}
-	Chat applications are used to communicate with each other. However, for the chat applications to be considered reliable, they must have a guaranteed message delivery service. Chat applications using TCP can provide reliability, but TCP is a connection oriented service which uses 3-way handshake before sending data. This handshaking introduces additional overhead which contributes toward the end-to-end delay. In chat applications where the data to be transferred is considerably small this overhead plays a role in the end-to-end delay. Due to initial handshaking TCP provides data integrity, but usually have longer latencies. So, our objective in this project is to create a chat application that uses reliable UDP instead of TCP to transfer messages.
+	Chat applications need to have guaranteed message delivery to be considered reliable. Popular chat applications use reliable transport protocols to achieve this objective. However, TCP and other connection oriented, reliable protocols have an added overhead associated with them. In chat applications the data being sent is very small, thus using TCP adds an overhead to the total transmission time of the data.
 	
-	Our implementation (using UDP over TCP) also ensures that all the messages sent are received at the receiver, which makes it reliable. Our implementation not only provides reliability but also ensure that the packets sent by the sender will be received in-order at the receiver.  This would ensure both functionalities associated with TCP i.e. reliability and in-order delivery and at the same time avoiding the overhead associated with the use of TCP which makes our implementation faster than TCP. So, we made UDP, which is an unreliable connectionless protocol to a reliable protocol with high performance.
+	In this project our objective was to avoid this overhead by using a connectionless protocol, namely UDP. UDP by nature is unreliable, which would not work for a chat application. We need to have a fast protocol which also provides reliability in the form of guaranteed message delivery. Thus, we implemented the Go-Back-N protocol using UDP in our project so that our dual objectives are met.
 	
-	Our implementation is based on client server architecture. We will have a client application program running on the user side and a server application which runs on the server. All clients must first register themselves with the server with a username, associated password and port number to communicate with others who are connected to that server.
+	Our implementation follows a standard client-server architecture. Clients begin by listening on a port on some IP and communicating this information to the server, on it’s well known IP and port. The server maintains this information for all clients. Any time a user wishes to communicate with another user, he/she sends the message along with the recipient name to the server which forwards it accordingly. GBN is implemented at the clients end to ensure reliability and the server acts as an intermediary.
+	
 	
 	
 	\section*{DESIGN}
-	< TO BE COMPLETED >
+	\includegraphics*[width=0.46\textwidth]{system.jpg}
+	
+	diagram1: System Design
+	
+	\includegraphics*[width=0.46\textwidth]{algo.png}
+	
+	diagram2: Algorithm Flowchart (explained in detail in the implementation section)
 	
 	
 	\section*{IMPLEMENTATION}
@@ -63,7 +70,7 @@
 	
 	When a user starts the client, it chooses a random port number and starts listening on that port, waiting to receive any data from the server. Then the client sends its own IP address, the random port number, username and password to the server on the given server IP address on port number 5005 (which the server is listening on). If it successfully connected to the server, then user receives a message “Connection Successful”. If the user connects using an already existing username but wrong password, then user receives the message “Connection Failed: User exists, wrong password used. Please reconnect”. If the user does not receive any data, this means that the server is down or wrong server IP address was used. All this is received by the client on the random port number created earlier. All further communication (messages, acknowledgements) from the server is also received on this same port number.
 	
-	Once the client is connected to the server, the user can send 3 types of messages. When the client types 'list', it receives a list of all the users that are stored on the server except self. When the user wants to chat with 'user1', he/she types 'user1: <message>'. After sending the message, the client receives 2 acknowledgements from the server, one when server receives it and other when receiving client (user1) receives it. If the server is down, then after 3 retry attempts, each with 2 seconds timeout, the client will receive a message “Message Not Sent: (msg): Server or Network is down”. Finally, 'exit' command exits the client.
+	Once the client is connected to the server, the user can send 3 types of messages. When the client types 'list', it receives a list of all the users that are stored on the server except self. When the user wants to chat with 'user1', he/she types 'user1: <message>'. After sending the message, the client receives 2 acknowledgements from the server, one when server receives it and other when receiving client (user1) receives it. If the server is down, then after 3 retry attempts, each with 2 seconds timeout, the client will receive a message “Unable to send messages. Server or network could be down”. Finally, 'exit' command exits the client.
 	
 	The client code uses 2 queues. One queue is gbn queue which has the max size of go-back-n window size (in our implementation, this is 4). Other queue is an unlimited queue containing all the remaining messages. When a user types a message to another user, the message is stored in this gbn queue along with the next sequence number (which is a global variable) unless it is full. The next sequence number is incremented (with modulus window size). If the gbn queue is full, the messages are saved in the other queue.
 	
@@ -98,15 +105,20 @@
 	
 	\includegraphics*[width=0.46\textwidth]{list.png}
 	
+	
 	\textbf{Test Case 2:} 2 clients communicate with each other. After sending message, sender gets ack when server receives the message and another ack when receiver receives the message.
 	
 	\includegraphics*[width=0.46\textwidth]{comm.png}
+	
 	
 	\textbf{Test Case 3 and 4:} 1 client goes offline (or disconnected or having network issues). Other client sends messages and gets ack that messages are received by server. Server tries to send messages to receiver till timeout (3 times). Then all messages from gbn queue are dropped and saved on server. When receiver comes back online, it receives all the pending messages and sender gets acknowledgement that all the messages are received by the received.
 	
 	\includegraphics*[width=0.46\textwidth]{offline_chat.png}
 	
+	
 	\textbf{Test Case 5:} Server goes down. 1 client tries to send message to another client. 1st Client is notified that the messages could not be sent.
+	
+	\includegraphics*[width=0.46\textwidth]{server-down.png}
 	
 	
 	\textbf{Additional Test Case:} If user tries to login with wrong password or a different user uses existing username with wrong password, user gets Connection Failed notification.
@@ -114,6 +126,10 @@
 	\includegraphics*[width=0.46\textwidth]{same-user.png}
 	
 	
+	\section*{REFERENCES}
+	https://docs.python.org/2/howto/sockets.html
+	https://wiki.python.org/moin/UdpCommunication
+	https://en.wikipedia.org/wiki/Go-Back-N\_ARQ
 	
 	
 \end{document}

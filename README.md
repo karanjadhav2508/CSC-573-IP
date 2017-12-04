@@ -51,3 +51,20 @@ Test Cases:
 	- user2 receives all the messages sent earlier by user1 in the same order
 	- user1 receives ack for all messages received by user2
 
+5) Sending messages when server/network is down (continuation from above)
+	- Stop the server (cntrl+C)
+	- Send message from user1 to user2
+
+	Expected output:
+	- user1 is notified that message is not sent and server or network could be down
+
+6) Logging in with wrong password (not continuation)
+	- Start the server
+	- Start client user1
+	- Exit client user1
+	- Agains tart client user1 with wrong password
+
+	Expected output:
+	- user1 is notified of connection failure as the username exists and password used is wrong
+
+
