@@ -1,29 +1,53 @@
-"# CSC-573-IP"
+#CSC-573-IP
 
-Run server : python server.py
-
-Run client : python client.py username password
-
-List users : list
-
-Send msg   : username:message
+#Chat Application using UDP with Go-Back-N
 
 
-Functionality:
-- On connection, user receives an ack from server.
-	- If "Connection Successful", user can send and receive messages.
-	- If "Connection Failed", username already exists and wrong password is used. User needs to reconnect. Will not receive messages.
-- On successful connection, "list" command will return a list of all the users except self.
-- To send messages, type the receivers username followed by a colon (":") and then the message
-	- User client tries to send the message thrice. If it can't, it'll give message "Message Not Sent: (msg): Server or Network is down" and message has to be resent
-	- Once server receives it, user gets acknowledgement "Message Received by Server: (msg)"
-	- Server saves the message and tries to send it to receiver thrice
-	- If receiver is offline during the 3 tries, all the pending saved messages to the receiver are sent immediately when the receiver comes back online
-	- When receiver receives the message, it sends acknowledgement "ack:Message Received"
-	- On receiving acknowledgement, server removes the saved message and sends acknowledgement to sender "Message Received by Client: (msg)"
-- Offline messages supported. If user2 is not connected, and user1 sends many messages to user2, they are stored and user2 receives all the messages as soon as it comes online
+Environment Settings: 
+- Python needs to be installed
 
-Not Implemented:
-- Currently using Stop and Wait functionality. Need to change to GoBack-N
-- Currently, if server gets disconnected or reconnects, the clients also have to reconnect. The previously connected clients will not be able to send or receive messages.
+Running server:
+- Open terminal (command line) and type "python server.py"
+
+Running 2 (or more) client:
+- Open another terminal (command line) and type "python client.py user1 pass1 127.0.0.1"
+- Open another terminal (command line) and type "python client.py user2 pass2 127.0.0.1"
+
+Client commands:
+- list (lists users)
+- user1: message (sends message to user1)
+- exit (exits the code)
+
+Test Cases:
+1) Multiple​ ​ clients​ ​ connect​ ​ to​ ​ server​ ​ and​ ​ get​ ​ list​ ​ of​ ​ available​ ​ clients
+	- Start server
+	- Start 2 clients user1 and user2
+	- type "list" from user1 terminal 
+	
+	Expected output: 
+	- user1 sees output ['user2']
+
+2) Communication between 2 clients (continuation from above)
+	- Send messages to each other
+
+	Expected output:
+	- user1 receives messages sent by user2
+	- user2 receives messages sent by user1
+	- both users receive ack when message is received by server
+	- both users receive ack when message is received by receiver
+
+3) Sending messages when 1 client is offline (continuation from above)
+	- Exit 2nd client user2
+	- send multiple messages from user1 to user2
+
+	Expected output:
+	- user1 receives ack when message is received by server
+	- server tries to send message to user2 but times out, retries 3 times and then saves messages
+
+4) Reconnecting offline client (continuation from above)
+	- Start 2nd client user2 again
+
+	Expected output:
+	- user2 receives all the messages sent earlier by user1 in the same order
+	- user1 receives ack for all messages received by user2
 
