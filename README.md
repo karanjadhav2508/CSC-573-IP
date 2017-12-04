@@ -2,6 +2,10 @@
 
 #Chat Application using UDP with Go-Back-N
 
+Team Members:
+- Pranav Vaidya (psvaidya)
+- Karan Jadhav (kjadhav)
+- Sriram Guddati (skguddat)
 
 Environment Settings: 
 - Python needs to be installed
