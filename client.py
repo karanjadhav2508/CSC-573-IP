@@ -3,7 +3,7 @@ import thread
 import time
 import sys
 
-SERV_IP = "127.0.0.1"
+#SERV_IP = "127.0.0.1"
 SERV_PORT = 5005
 SELF_IP = "127.0.0.1"
 SELF_PORT = 0
@@ -23,7 +23,7 @@ messages = []
 gbn_queue = []
 
 def start_server(recv_sock):
-	global done, expected_ack_seq
+	global done, expected_ack_seq, SERV_IP
 	while True:
 		msg, addr = recv_sock.recvfrom(4096)
 
@@ -58,7 +58,7 @@ def start_server(recv_sock):
 	done = True
 
 def setup_server():
-	global SELF_PORT
+	global SELF_PORT, SERV_IP
 	recv_sock = socket.socket(socket.AF_INET,
                      socket.SOCK_DGRAM)
 	recv_sock.bind((SELF_IP, RAND_PORT))
@@ -67,14 +67,14 @@ def setup_server():
 	thread.start_new_thread(start_server,(recv_sock,))
 
 def send_details():
-	global user_id, password, SELF_PORT
+	global user_id, password, SELF_PORT, SERV_IP
 	init_sock = socket.socket(socket.AF_INET,
                      socket.SOCK_DGRAM)
 	init_sock.sendto("connection_request:"+user_id+":"+password+":"+str(SELF_IP)+":"+str(SELF_PORT), (SERV_IP, SERV_PORT))
 	init_sock.close()
 
 def deliver_msgs_in_queue():
-	global messages, gbn_queue
+	global messages, gbn_queue, SERV_IP
 	sock = socket.socket(socket.AF_INET,
                      socket.SOCK_DGRAM)
 
@@ -96,9 +96,13 @@ def store_message(msg):
 		messages.append(msg)	
 
 def chat():
-	global done, user_id
+	global done, user_id, SERV_IP
 	while True:
 		msg = raw_input()
+		if msg == "exit":
+			done = True
+			break
+
 		if msg == "list":
 			sock = socket.socket(socket.AF_INET,
                                      socket.SOCK_DGRAM)
@@ -121,12 +125,14 @@ def chat():
 		time.sleep(1)
 
 if __name__=="__main__":
-	if len(sys.argv) != 3:
-		print "Usage: client.py <username> <password>"
+	global SERV_IP
+	if len(sys.argv) != 4:
+		print "Usage: python client.py <username> <password> <server_ip>"
 		exit()
 
 	user_id = sys.argv[1]
 	password = sys.argv[2]
+	SERV_IP = sys.argv[3]
 
 	setup_server()
 	send_details()

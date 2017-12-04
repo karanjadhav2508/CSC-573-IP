@@ -1,0 +1,119 @@
+
+\documentclass[10pt, pdftex, twocolumn]{report}
+\usepackage{epsf}
+\usepackage{epsfig}
+\usepackage{times}
+\usepackage{ifthen}
+\usepackage{comment}
+\usepackage[margin=1in]{geometry}
+
+\begin{document}
+	\begin{titlepage}
+		\centering
+		{\LARGE\bfseries CSC/ECE 573 - Internet Protocols}
+		
+		\vspace{1cm}
+		
+		{\Large\bfseries Project Report}
+		
+		\vspace{1cm}
+		
+		{\Large\bfseries Chat Application using UDP with Go-Back-N}
+		
+		\vspace{2cm}
+		
+		{\Large\bfseries Submission Date: 3rd December 2017}		
+		
+		\vspace{2cm}
+		
+		{\Large\bfseries Team Members}
+		
+		\vspace{0.5cm}
+		
+		{\Large Pranav Vaidya (psvaidya)}
+		
+		\vspace{0.5cm}
+		
+		{\Large Karan Jadhav (kjadhav)}
+		
+		\vspace{0.5cm}
+		
+		{\Large Sriram Guddati (skguddat)}
+		
+	\end{titlepage}
+	
+	\section*{INTRODUCTION}
+	Chat applications are used to communicate with each other. However, for the chat applications to be considered reliable, they must have a guaranteed message delivery service. Chat applications using TCP can provide reliability, but TCP is a connection oriented service which uses 3-way handshake before sending data. This handshaking introduces additional overhead which contributes toward the end-to-end delay. In chat applications where the data to be transferred is considerably small this overhead plays a role in the end-to-end delay. Due to initial handshaking TCP provides data integrity, but usually have longer latencies. So, our objective in this project is to create a chat application that uses reliable UDP instead of TCP to transfer messages.
+	
+	Our implementation (using UDP over TCP) also ensures that all the messages sent are received at the receiver, which makes it reliable. Our implementation not only provides reliability but also ensure that the packets sent by the sender will be received in-order at the receiver.  This would ensure both functionalities associated with TCP i.e. reliability and in-order delivery and at the same time avoiding the overhead associated with the use of TCP which makes our implementation faster than TCP. So, we made UDP, which is an unreliable connectionless protocol to a reliable protocol with high performance.
+	
+	Our implementation is based on client server architecture. We will have a client application program running on the user side and a server application which runs on the server. All clients must first register themselves with the server with a username, associated password and port number to communicate with others who are connected to that server.
+	
+	
+	\section*{DESIGN}
+	< TO BE COMPLETED >
+	
+	
+	\section*{IMPLEMENTATION}
+	Our client-server program is written in Python programming language we used is python. The code contains 2 files, ‘client.py’ which is the client source code, and ‘server.py’ which is the server source code. These are explained in detail below:
+	
+	\subsection*{Client Implementation}
+	Each client requires a unique username and a password. User needs to pass their username and password along with the server ip address when starting the client. 
+	The usage is “python client.py username password server-ip". 
+	
+	When a user starts the client, it chooses a random port number and starts listening on that port, waiting to receive any data from the server. Then the client sends its own IP address, the random port number, username and password to the server on the given server IP address on port number 5005 (which the server is listening on). If it successfully connected to the server, then user receives a message “Connection Successful”. If the user connects using an already existing username but wrong password, then user receives the message “Connection Failed: User exists, wrong password used. Please reconnect”. If the user does not receive any data, this means that the server is down or wrong server IP address was used. All this is received by the client on the random port number created earlier. All further communication (messages, acknowledgements) from the server is also received on this same port number.
+	
+	Once the client is connected to the server, the user can send 3 types of messages. When the client types 'list', it receives a list of all the users that are stored on the server except self. When the user wants to chat with 'user1', he/she types 'user1: <message>'. After sending the message, the client receives 2 acknowledgements from the server, one when server receives it and other when receiving client (user1) receives it. If the server is down, then after 3 retry attempts, each with 2 seconds timeout, the client will receive a message “Message Not Sent: (msg): Server or Network is down”. Finally, 'exit' command exits the client.
+	
+	The client code uses 2 queues. One queue is gbn queue which has the max size of go-back-n window size (in our implementation, this is 4). Other queue is an unlimited queue containing all the remaining messages. When a user types a message to another user, the message is stored in this gbn queue along with the next sequence number (which is a global variable) unless it is full. The next sequence number is incremented (with modulus window size). If the gbn queue is full, the messages are saved in the other queue.
+	
+	After storing the message, a new thread is started which tries to send the messages in its gbn queue to the server. Because this is a parallel thread, next upcoming messages can get added to the gbn queue before the previous message is sent. So, in this way, max 4 messages can be sent at the same time (4 is the go-back-n window size we used, but this can be set to any value). 
+	
+	When the client receives an acknowledgement from the server (about the server receiving the message), the client checks if this acknowledgement has the expected sequence. Expected ack sequence is maintained as a global variable. If the ack is as expected, that message is removed from the gbn queue (first message in the queue), expected ack sequence number is updated and next message from the other queue (if not empty) is added to this gbn queue with the next sequence number. If the ack received is not of the expected packet, client just ignores the packet as per Go-Back-N policy. 
+	
+	Whenever a message is sent from the gbn queue of the client to the server, the client waits for a timeout value of 2 seconds. At the end of this, if the expected ack sequence number is different from the sequence number of the message sent, client knows that an ack was received for this message. If the expected ack sequence number is same as the sequence number of the message sent, then the client knows that it did not receive an ack for this message till timeout. This means the packet is lost or server is down. As per Go-Back-N policy, in this scenario, the client resends all the packets in its gbn queue. It also updated the retry count value of the first message in gbn queue. It tries to resend the packets 3 times, after which, if it still did not receive an ack from the server, it will remove all the messages from gbn queue and notify the user that the message could not be sent. When this happens, user needs to re-type the message, possibly after some time as the server could be down.
+	
+	Now, when a client receives a message from the server which is sent by another user, it prints this message to the user and send an ack back to the server like “ack:Message Received:gbn:2”. As you can see, the ack contains the gbn sequence number received with the message, so that the server can identify the ack. Normal messages and acknowledgements are distinguished based on the content of the message. The server always sends messages/acks in the expected format.
+	
+	This is how our the client code is implemented. In short, it uses UDP to send and receive messages, uses Go-Back-N policy with window size 4, next sequence number and expected ack number are maintained globally, max 4 messages are stored in gbn queue and rest are stored in another queue and after receiving the ack for expected package, next message from the other queue is pushed into the gbn queue. Parallel threads help in sending and receiving multiple messages at the same time.
+	
+	
+	\subsection*{Server Implementation}
+	When the server is started, it listens on port 5005 for any incoming messages. At the same time, it starts a parallel thread which keeps checking for any messages in its gbn queue every second and sends the messages in this queue. 
+	
+	The list of clients is maintained in a map. For each client, its details including username, password, IP, port and a list of outgoing messages which are not yet sent are stored in the map. When a client sends its details to the server, server checks if this client is already existing in the map. If not, it saves all the details of this client in the map as mentioned above. If it already exists, server checks if the password is matching. If not, server notifies the client. If yes, server updates the IP and port of the user in the map. If the user has any pending messages sent by other users, server adds these messages to the gbn queue (till the queue is full). The parallel running thread then sends these messages to the user. If the client requests for the list of all the users, the server sends the list of users maintained in this map.
+	
+	When the server receives a message from 1 client meant for another client, it first stores the message in the receiver’s queue. It also stores the message in gbn queue along with the sequence number. If the gbn queue is full, then the message is stored in another queue. After this, the server sends an ack back to the sending client with the same sequence number of the message. As the sending part is done by a parallel thread, multiple messages can enter the gbn queue (max 4 = window size). 
+	
+	The parallel thread sends messages from the gbn queue to the server with the sequence number. Every time it sends a message, another parallel thread waits for a 2 second timeout. The timeout functionality is similar as in the client implementation explained above. After 2 seconds, if the message sequence number is the same as the expected sequence number, the server knows that the ack is not received and it resends all the messages. Difference with client code is that after 3 retries, the messages are removed from gbn queue and entered into the other queue so that they can be sent again at a later time (when the receiver comes back online).
+	
+	When the server receives an ack from the receiving client, if the ack number received is not same as the expected ack number, it is ignored as per Go-Back-N policy. If it is same, that message is removed from gbn queue and also from the receiving client’s map. After this, the server sends an ack back to the sending client which states that the receiver has received the message. As the gbn queue has an extra slot open now, next message from the other queue is pushed into the gbn queue and the process continues.
+	
+	This is how our the server code is implemented. It is similar to client code in terms of Go-Back-N implementation.
+	
+	
+	
+	\section*{RESULTS}
+	\textbf{Test Case 1:} 2 clients connect to server and each can see list of other clients.
+	
+	\includegraphics*[width=0.46\textwidth]{list.png}
+	
+	\textbf{Test Case 2:} 2 clients communicate with each other. After sending message, sender gets ack when server receives the message and another ack when receiver receives the message.
+	
+	\includegraphics*[width=0.46\textwidth]{comm.png}
+	
+	\textbf{Test Case 3 and 4:} 1 client goes offline (or disconnected or having network issues). Other client sends messages and gets ack that messages are received by server. Server tries to send messages to receiver till timeout (3 times). Then all messages from gbn queue are dropped and saved on server. When receiver comes back online, it receives all the pending messages and sender gets acknowledgement that all the messages are received by the received.
+	
+	\includegraphics*[width=0.46\textwidth]{offline_chat.png}
+	
+	\textbf{Test Case 5:} Server goes down. 1 client tries to send message to another client. 1st Client is notified that the messages could not be sent.
+	
+	
+	\textbf{Additional Test Case:} If user tries to login with wrong password or a different user uses existing username with wrong password, user gets Connection Failed notification.
+	
+	\includegraphics*[width=0.46\textwidth]{same-user.png}
+	
+	
+	
+	
+\end{document}

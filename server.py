@@ -65,7 +65,6 @@ def timeout_check(gbn_seq):
 			else:
 				print "Timeout waiting for ack. Resending all messages in gbn_queue (retry number " + str(gbn_queue[0][2])  + ")"
 				gbn_queue[0][2] = gbn_queue[0][2] + 1
-				#deliver_msgs_in_queue()
 
 def deliver_messages():
 	global sock, gbn_queue, clients
@@ -87,28 +86,6 @@ def deliver_messages():
 			if len(gbn_queue) > 0:
 				i = i - (size - len(gbn_queue))
 				thread.start_new_thread(timeout_check,(gbn_queue[i][0],))
-
-	cl_sock.close()
-
-
-def deliver_msgs_in_queue():
-	global sock, gbn_queue, clients, lock
-	cl_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-	while lock==1:
-		time.sleep(0.1)
-	lock = 1
-	size = len(gbn_queue)
-	for i in range(size):
-		i = i - (size - len(gbn_queue))
-		msg = gbn_queue[i][1]
-		sender = gbn_queue[i][3]
-		receiver = gbn_queue[i][4]
-		gbn_seq = "gbn:" + str(gbn_queue[i][0])
-	
-		cl_sock.sendto("Message from "+sender+": "+msg+":"+gbn_seq, (clients[receiver].ip, int(clients[receiver].port)))
-		thread.start_new_thread(timeout_check,(gbn_queue[i][0],))
-	lock =0
 
 	cl_sock.close()
 
@@ -134,8 +111,6 @@ def deliver_pending_messages(receiver):
 			all_messages.remove([sender, recv, message])
 			gbn_queue.append([next_seq, message, 0, sender, recv])
 			next_seq = (next_seq + 1) % gbn_window
-
-	#thread.start_new_thread(deliver_msgs_in_queue,())
 
 def add_client(info):
 	global clients
@@ -194,7 +169,6 @@ def send(info, addr):
 			all_messages.append([sender, receiver, msg])
 
 		send_ack(gbn_seq, sender, receiver, msg)
-		#thread.start_new_thread(deliver_msgs_in_queue,())
 	else:
 		sock.sendto("User "+receiver+" not present", addr)
 
@@ -216,7 +190,6 @@ def check_ack(gbn_ack_no):
 			del all_messages[0]
 			gbn_queue.append([next_seq, next_msg, 0, next_sender, next_receiver])
 			next_seq = (next_seq + 1) % gbn_window
-			#thread.start_new_thread(deliver_msgs_in_queue,())
 
 	else:
 		#ignore dup/unexpected ack
